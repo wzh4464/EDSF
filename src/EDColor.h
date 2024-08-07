@@ -19,16 +19,17 @@
 * By using this library you are implicitly assumed to have accepted all of the above statements,
 * and accept to cite the following papers:
 *
-* [1] C. Topal and C. Akinlar, “Edge Drawing: A Combined Real-Time Edge and Segment Detector,?*     Journal of Visual Communication and Image Representation, 23(6), 862-872, doi:10.1016/j.jvcir.2012.05.004 (
+* [1] C. Topal and C. Akinlar, “Edge Drawing: A Combined Real-Time Edge and Segment Detector,” 
+*     Journal of Visual Communication and Image Representation, 23(6), 862-872, doi:10.1016/j.jvcir.2012.05.004 (2012).
 *
-* [2] C. Akinlar and C. Topal, “EDPF: A Real-time Parameter-free Edge Segment Detector with a False Detection Con
-*     International Journal of Pattern Recognition and Artificial Intelligence, 26(1), doi:10.1142/S0218001412550
+* [2] C. Akinlar and C. Topal, “EDPF: A Real-time Parameter-free Edge Segment Detector with a False Detection Control,” 
+*     International Journal of Pattern Recognition and Artificial Intelligence, 26(1), doi:10.1142/S0218001412550026 (2012).
 *
 * [3] C. Akinlar, C. Topal, "ColorED: Color Edge and Segment Detection by Edge Drawing (ED),"
 *     submitted to the Journal of Visual Communication and Image Representation (2017).
 **************************************************************************************************************/
 #pragma once
-#ifndef  _EDColor_
+#ifndef _EDColor_
 #define _EDColor_
 
 #include <opencv2/opencv.hpp>
@@ -46,64 +47,97 @@
 #define EPSILON 1.0
 #define MIN_PATH_LEN 10
 
-
 class EDColor {
 public:
-	EDColor(cv::Mat srcImage, int gradThresh = 20, int anchor_thresh = 4, double sigma = 1.5, bool validateSegments = false);
-	cv::Mat getEdgeImage();
-	std::vector<std::vector<cv::Point>> getSegments();
-	int getSegmentNo();
+    // 构造函数：初始化带有源图像和其他参数的 EDColor 对象
+    EDColor(cv::Mat srcImage, int gradThresh = 20, int anchor_thresh = 4, double sigma = 1.5, bool validateSegments = false);
+    
+    // 返回边缘图像
+    cv::Mat getEdgeImage();
+    
+    // 返回所有段的向量
+    std::vector<std::vector<cv::Point>> getSegments();
+    
+    // 返回段的数量
+    int getSegmentNo();
+    
+    // 返回图像宽度
+    int getWidth();
+    
+    // 返回图像高度
+    int getHeight();
+    
+    // 输入图像
+    cv::Mat inputImage;
 
-	int getWidth();
-	int getHeight();
-
-	cv::Mat inputImage;
 private:
-	uchar* L_Img;
-	uchar* a_Img;
-	uchar* b_Img;
+    // 用于存储 Lab 颜色空间分量
+    uchar* L_Img;
+    uchar* a_Img;
+    uchar* b_Img;
 
-	uchar* smooth_L;
-	uchar* smooth_a;
-	uchar* smooth_b;
+    // 用于存储平滑后的 Lab 颜色空间分量
+    uchar* smooth_L;
+    uchar* smooth_a;
+    uchar* smooth_b;
 
-	uchar* dirImg;
-	short* gradImg;
+    // 方向图像和梯度图像
+    uchar* dirImg;
+    short* gradImg;
 
-	cv::Mat edgeImage;
-	uchar* edgeImg;
+    // 边缘图像和边缘图像数据指针
+    cv::Mat edgeImage;
+    uchar* edgeImg;
 
-	const uchar* blueImg;
-	const uchar* greenImg;
-	const uchar* redImg;
+    // 输入图像的 RGB 分量指针
+    const uchar* blueImg;
+    const uchar* greenImg;
+    const uchar* redImg;
 
-	int width;
-	int height;
+    // 图像宽度和高度
+    int width;
+    int height;
 
-	double divForTestSegment;
-	double* H;
-	int np;
-	int segmentNo;
+    // 用于测试段的参数
+    double divForTestSegment;
+    double* H;
+    int np;
+    int segmentNo;
 
-	std::vector<std::vector<cv::Point>> segments;
+    // 段的向量
+    std::vector<std::vector<cv::Point>> segments;
 
-	static double LUT1[LUT_SIZE + 1];
-	static double LUT2[LUT_SIZE + 1];
-	static bool LUT_Initialized;
+    // 快速颜色空间转换的查找表
+    static double LUT1[LUT_SIZE + 1];
+    static double LUT2[LUT_SIZE + 1];
+    static bool LUT_Initialized;
 
-	void MyRGB2LabFast();
-	void ComputeGradientMapByDiZenzo();
-	void smoothChannel(uchar* src, uchar* smooth, double sigma);
-	void validateEdgeSegments();
-	void testSegment(int i, int index1, int index2);
-	void extractNewSegments();
-	double NFA(double prob, int len);
+    // 私有成员函数：快速将 RGB 转换为 Lab 颜色空间
+    void MyRGB2LabFast();
+    
+    // 通过 DiZenzo 算法计算梯度图
+    void ComputeGradientMapByDiZenzo();
+    
+    // 平滑通道
+    void smoothChannel(uchar* src, uchar* smooth, double sigma);
+    
+    // 验证边缘段
+    void validateEdgeSegments();
+    
+    // 测试段
+    void testSegment(int i, int index1, int index2);
+    
+    // 提取新段
+    void extractNewSegments();
+    
+    // 计算概率
+    double NFA(double prob, int len);
 
-	static void fixEdgeSegments(std::vector<std::vector<cv::Point>> map, int noPixels);
+    // 修复边缘段
+    static void fixEdgeSegments(std::vector<std::vector<cv::Point>> map, int noPixels);
 
-	static void InitColorEDLib();
+    // 初始化 ColorED 库
+    static void InitColorEDLib();
 };
 
-#endif // ! _EDColor_
-
-
+#endif // !_EDColor_

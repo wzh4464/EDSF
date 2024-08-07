@@ -19,9 +19,11 @@
 * By using this library you are implicitly assumed to have accepted all of the above statements,
 * and accept to cite the following papers:
 *
-* [1] C. Topal and C. Akinlar, �Edge Drawing: A Combined Real-Time Edge and Segment Detector,?*     Journal of Visual Communication and Image Representation, 23(6), 862-872, DOI: 10.1016/j.jvcir.2012.05.004 (2012).
+* [1] C. Topal and C. Akinlar, “Edge Drawing: A Combined Real-Time Edge and Segment Detector,” 
+*     Journal of Visual Communication and Image Representation, 23(6), 862-872, DOI: 10.1016/j.jvcir.2012.05.004 (2012).
 *
-* [2] C. Akinlar and C. Topal, �EDPF: A Real-time Parameter-free Edge Segment Detector with a False Detection Control,?*     International Journal of Pattern Recognition and Artificial Intelligence, 26(1), DOI: 10.1142/S0218001412550026 (2012).
+* [2] C. Akinlar and C. Topal, “EDPF: A Real-time Parameter-free Edge Segment Detector with a False Detection Control,” 
+*     International Journal of Pattern Recognition and Artificial Intelligence, 26(1), DOI: 10.1142/S0218001412550026 (2012).
 **************************************************************************************************************/
 #pragma once
 #ifndef _ED_
@@ -45,84 +47,102 @@
 enum GradientOperator { PREWITT_OPERATOR = 101, SOBEL_OPERATOR = 102, SCHARR_OPERATOR = 103, LSD_OPERATOR = 104 };
 
 struct StackNode {
-	int r, c;   // starting pixel
-	int parent; // parent chain (-1 if no parent)
-	int dir;    // direction where you are supposed to go
+    int r, c;   // starting pixel
+    int parent; // parent chain (-1 if no parent)
+    int dir;    // direction where you are supposed to go
 };
 
 // Used during Edge Linking
 struct Chain {
-
-	int dir;                   // Direction of the chain
-	int len;                   // # of pixels in the chain
-	int parent;                // Parent of this node (-1 if no parent)
-	int children[2];           // Children of this node (-1 if no children)
-	cv::Point* pixels;         // Pointer to the beginning of the pixels array
+    int dir;                   // Direction of the chain
+    int len;                   // # of pixels in the chain
+    int parent;                // Parent of this node (-1 if no parent)
+    int children[2];           // Children of this node (-1 if no children)
+    cv::Point* pixels;         // Pointer to the beginning of the pixels array
 };
 
 class ED {
+public:
+    // 构造函数：初始化带有源图像和其他参数的 ED 对象
+    ED(cv::Mat _srcImage, GradientOperator _op = PREWITT_OPERATOR, int _gradThresh = 20, int _anchorThresh = 0, int _scanInterval = 1, int _minPathLen = 20, double _sigma = 1.0, bool _sumFlag = true);
+    // 拷贝构造函数
+    ED(const ED& cpyObj);
+    // 构造函数：初始化带有梯度图像和方向图像的 ED 对象
+    ED(short* gradImg, uchar* dirImg, int _width, int _height, int _gradThresh, int _anchorThresh, int _scanInterval = 1, int _minPathLen = 10, bool selectStableAnchors = true);
+    // 从 EDColor 对象初始化 ED 对象
+    ED(EDColor& cpyObj);
+    // 默认构造函数
+    ED();
 
-public://ED �������أ�����������Ͳ�ͬ
-	ED(cv::Mat _srcImage, GradientOperator _op = PREWITT_OPERATOR, int _gradThresh = 20, int _anchorThresh = 0, int _scanInterval = 1, int _minPathLen = 20, double _sigma = 1.0, bool _sumFlag = true);
-	ED(const ED& cpyObj);
-	ED(short* gradImg, uchar* dirImg, int _width, int _height, int _gradThresh, int _anchorThresh, int _scanInterval = 1, int _minPathLen = 10, bool selectStableAnchors = true);
-	ED(EDColor& cpyObj);
-	ED();//���涼�ǹ��캯��
+    // 返回边缘图像
+    cv::Mat getEdgeImage();
+    // 返回锚点图像
+    cv::Mat getAnchorImage();
+    // 返回平滑后的图像
+    cv::Mat getSmoothImage();
+    // 返回梯度图像
+    cv::Mat getGradImage();
 
-	cv::Mat getEdgeImage();//��Ա����
-	cv::Mat getAnchorImage();
-	cv::Mat getSmoothImage();
-	cv::Mat getGradImage();
+    // 返回段的数量
+    int getSegmentNo();
+    // 返回锚点的数量
+    int getAnchorNo();
 
-	int getSegmentNo();
-	int getAnchorNo();
+    // 返回锚点的向量
+    std::vector<cv::Point> getAnchorPoints();
+    // 返回所有段的向量
+    std::vector<std::vector<cv::Point>> getSegments();
+    // 返回排序后的段的向量
+    std::vector<std::vector<cv::Point>> getSortedSegments();
 
-	std::vector<cv::Point> getAnchorPoints();
-	std::vector<std::vector<cv::Point>> getSegments();
-	std::vector<std::vector<cv::Point>> getSortedSegments();
-
-	cv::Mat drawParticularSegments(std::vector<int> list);
+    // 根据给定的段列表绘制特定的段
+    cv::Mat drawParticularSegments(std::vector<int> list);
 
 protected:
-	int width; // width of source image
-	int height; // height of source image
-	uchar* srcImg;
-	std::vector<std::vector< cv::Point> > segmentPoints;//2ά����
-	double sigma; // Gaussian sigma
-	cv::Mat smoothImage;
-	uchar* edgeImg; // pointer to edge image data
-	uchar* smoothImg; // pointer to smoothed image data
-	int segmentNos;
-	int minPathLen;
-	cv::Mat srcImage;
+    int width;  // 源图像的宽度
+    int height; // 源图像的高度
+    uchar* srcImg; // 源图像数据的指针
+    std::vector<std::vector<cv::Point>> segmentPoints; // 段的点的二维数组
+    double sigma; // 高斯模糊的 sigma 值
+    cv::Mat smoothImage; // 平滑后的图像
+    uchar* edgeImg; // 边缘图像数据的指针
+    uchar* smoothImg; // 平滑图像数据的指针
+    int segmentNos; // 段的数量
+    int minPathLen; // 最小路径长度
+    cv::Mat srcImage; // 源图像
 
 public:
-	void ComputeGradient();
-	void ComputeAnchorPoints();
-	void JoinAnchorPointsUsingSortedAnchors();
-	void sortAnchorsByGradValue();
-	int* sortAnchorsByGradValue1();
+    // 计算梯度图像
+    void ComputeGradient();
+    // 计算锚点
+    void ComputeAnchorPoints();
+    // 使用排序后的锚点连接锚点
+    void JoinAnchorPointsUsingSortedAnchors();
+    // 根据梯度值对锚点进行排序
+    void sortAnchorsByGradValue();
+    // 返回根据梯度值排序的锚点数组
+    int* sortAnchorsByGradValue1();
 
-	static int LongestChain(Chain* chains, int root);
-	static int RetrieveChainNos(Chain* chains, int root, int chainNos[]);
+    // 返回从根节点开始的最长链
+    static int LongestChain(Chain* chains, int root);
+    // 检索链编号
+    static int RetrieveChainNos(Chain* chains, int root, int chainNos[]);
 
-	int anchorNos;
-	std::vector<cv::Point> anchorPoints;
-	std::vector<cv::Point> edgePoints;
+    int anchorNos; // 锚点数量
+    std::vector<cv::Point> anchorPoints; // 锚点点列表
+    std::vector<cv::Point> edgePoints; // 边缘点列表
 
-	cv::Mat edgeImage;
-	cv::Mat gradImage;
+    cv::Mat edgeImage; // 边缘图像
+    cv::Mat gradImage; // 梯度图像
 
-	uchar* dirImg; // pointer to direction image data
-	short* gradImg; // pointer to gradient image data
+    uchar* dirImg; // 方向图像数据的指针
+    short* gradImg; // 梯度图像数据的指针
 
-	GradientOperator op; // operation used in gradient calculation
-	int gradThresh; // gradient threshold
-	int anchorThresh; // anchor point threshold
-	int scanInterval;
-	bool sumFlag;
+    GradientOperator op; // 用于梯度计算的操作
+    int gradThresh; // 梯度阈值
+    int anchorThresh; // 锚点阈值
+    int scanInterval; // 扫描间隔
+    bool sumFlag; // 总和标志
 };
 
-
 #endif
-

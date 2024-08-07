@@ -1,73 +1,80 @@
-#include"ED.h"
+#include "ED.h"
 #include "CED.h"
 #include "EV.h"
 
+/**
+ * @brief 构造函数：初始化 CED 对象
+ * 
+ * @param srcImage 输入的源图像
+ */
 CED::CED(cv::Mat srcImage)
-        :ED(srcImage, PREWITT_OPERATOR, 11, 3) {
-    imgRGB = srcImage.clone();
-    std::copy(segmentPoints.begin(), segmentPoints.end(), std::back_inserter(edgeList));
+    : ED(srcImage, PREWITT_OPERATOR, 11, 3) {
+    imgRGB = srcImage.clone(); // 克隆输入图像
+    std::copy(segmentPoints.begin(), segmentPoints.end(), std::back_inserter(edgeList)); // 复制段点到边缘列表
 }
 
+/**
+ * @brief 运行 CED 算法的主流程
+ */
 void CED::run_CED() {
-
     run_RDP();
-
     splitEdge();
-
     buildWeightedEdge();
-
     initUnionFind();
-
     arcMatchingByUnionFind();
-
     ellipseCluster();
-
 }
 
+/**
+ * @brief 运行 RDP 算法进行边缘检测
+ */
 void CED::run_RDP() {
-    segList.resize(edgeList.size());
-    sort(edgeList.begin(), edgeList.end(),
+    segList.resize(edgeList.size()); // 调整段列表的大小
+    sort(edgeList.begin(), edgeList.end(), // 对边缘列表进行排序
          [&](std::vector<cv::Point> &a, std::vector<cv::Point> &b) {
-             return a.size() > b.size();
+             return a.size() > b.size(); // 根据大小排序
          });
-    parallel_for_(cv::Range(0, threads), Parallel_For_RDP(edgeList.data(), segList.data(), epsilon, (int)edgeList.size(),threads));
+    parallel_for_(cv::Range(0, threads), // 并行运行 RDP 算法
+                  Parallel_For_RDP(edgeList.data(), segList.data(), epsilon, (int)edgeList.size(), threads));
 }
 
-
+/**
+ * @brief 分割边缘
+ */
 void CED::splitEdge() {
-    double th_angle = cos(sharpAngle * M_PI / 180);
+    double th_angle = cos(sharpAngle * M_PI / 180); // 计算角度阈值
 
-    for(int i = 0; i < segList.size(); i++) {
-        if(edgeList[i].size() < minimum_edge_length) break;
-        if(segList[i].size() < 2) {
+    for (int i = 0; i < segList.size(); i++) {
+        if (edgeList[i].size() < minimum_edge_length) break; // 边缘长度小于最小边缘长度则跳过
+        if (segList[i].size() < 2) {
             continue;
         }
         int pre_index = 0;
         int preSegId = 0;
         auto& seg = segList[i];
-        for(int j = 1; j < seg.size(); j++) {
+        for (int j = 1; j < seg.size(); j++) {
             bool isCornerPoint = false, isInflectionPoint = false;
             cv::Point l2_v = edgeList[i][seg[j - 1].second - 1] - edgeList[i][seg[j - 1].first];
             cv::Point l3_v = edgeList[i][seg[j].second - 1] - edgeList[i][seg[j].first];
             double angle = l2_v.dot(l3_v) / (cv::norm(l2_v) * cv::norm(l3_v));
-            if(angle <= th_angle) {
+            if (angle <= th_angle) {
                 isCornerPoint = true;
             }
-            if(j >= 2) {
+            if (j >= 2) {
                 cv::Point l1_v = edgeList[i][seg[j - 2].second - 1] - edgeList[i][seg[j - 2].first];
                 if (l1_v.cross(l2_v) * l2_v.cross(l3_v) < 0) {
                     isInflectionPoint = true;
                 }
             }
-            if(isCornerPoint || isInflectionPoint) {
+            if (isCornerPoint || isInflectionPoint) {
                 int len = seg[j].first - pre_index;
-                if(len > minimum_edge_length && j - preSegId > 1) {
+                if (len > minimum_edge_length && j - preSegId > 1) {
                     ellArc.emplace_back(std::vector<cv::Point>(edgeList[i].begin() + pre_index,
-                                                   edgeList[i].begin() + seg[j].first));
+                                                               edgeList[i].begin() + seg[j].first));
                     std::vector<cv::Point>& arc = ellArc.back();
                     auto v1 = arc[arc.size() / 2] - arc.front();
                     auto v2 = arc.back() - arc[arc.size() / 2];
-                    if(v1.cross(v2) > 0) {
+                    if (v1.cross(v2) > 0) {
                         std::reverse(arc.begin(), arc.end());
                     }
                 }
@@ -78,11 +85,11 @@ void CED::splitEdge() {
         int len = seg.back().second - pre_index;
         if (len >= minimum_edge_length && seg.size() - preSegId > 1) {
             ellArc.emplace_back(std::vector<cv::Point>(edgeList[i].begin() + pre_index,
-                                                    edgeList[i].begin() + seg.back().second));
+                                                       edgeList[i].begin() + seg.back().second));
             std::vector<cv::Point>& arc = ellArc.back();
             auto v1 = arc[arc.size() / 2] - arc.front();
             auto v2 = arc.back() - arc[arc.size() / 2];
-            if(v1.cross(v2) > 0) {
+            if (v1.cross(v2) > 0) {
                 std::reverse(arc.begin(), arc.end());
             }
         }
@@ -92,28 +99,27 @@ void CED::splitEdge() {
          [&](std::vector<cv::Point> &a, std::vector<cv::Point> &b) {
              return a.size() > b.size();
          });
-    parallel_for_(cv::Range(0, threads), Parallel_For_RDP(ellArc.data(), ellArcSeg.data(), epsilon, (int)ellArc.size(),threads));
-
+    parallel_for_(cv::Range(0, threads), Parallel_For_RDP(ellArc.data(), ellArcSeg.data(), epsilon, (int)ellArc.size(), threads));
 }
 
-
-
-
+/**
+ * @brief 构建加权边缘
+ */
 void CED::buildWeightedEdge() {
     setNodes.resize(ellArc.size());
-    for(int i = 0; i < ellArc.size(); i++) {
-        if(ellArcSeg[i].size() < 2) {
+    for (int i = 0; i < ellArc.size(); i++) {
+        if (ellArcSeg[i].size() < 2) {
             continue;
         }
-        for(int j = i + 1; j < ellArc.size(); j++) {
-            if(ellArcSeg[j].size() < 2) {
+        for (int j = i + 1; j < ellArc.size(); j++) {
+            if (ellArcSeg[j].size() < 2) {
                 continue;
             }
-            if(canFromWeightedPair(i, j)) {
-                cv::RotatedRect ell = fit({i, j});
-                const std::vector<int>tmp = {j};
+            if (canFromWeightedPair(i, j)) {
+                cv::RotatedRect ell = fit(std::vector<int>{i, j});
+                const std::vector<int> tmp = {j};
                 cv::Vec3f score = interiorRate(tmp, ell);
-                if(score[1] > minimum_edge_score) {
+                if (score[1] > minimum_edge_score) {
                     setNodes[i].wq.emplace_back(WeightedEdge(j, score));
                 }
             }
@@ -121,21 +127,22 @@ void CED::buildWeightedEdge() {
     }
 }
 
-
+/**
+ * @brief 进行椭圆聚类
+ */
 void CED::ellipseCluster() {
-
-    for(int i = 0; i < setNodes.size(); i++) {
-        if(setNodes[i].bro.size() > 0 && setNodes[i].score[2] > minimum_ellipse_score2) {
+    for (int i = 0; i < setNodes.size(); i++) {
+        if (setNodes[i].bro.size() > 0 && setNodes[i].score[2] > minimum_ellipse_score2) {
             ellipseList.emplace_back(setNodes[i].ell);
             ellipse_score.emplace_back(setNodes[i].score);
             ellipseArcId.emplace_back(setNodes[i].set_elements);
         }
 
-        if(i < ellArcSeg.size() && ellArcSeg[i].size() >= 5) {
-            std::vector<int>tmp = {i};
+        if (i < ellArcSeg.size() && ellArcSeg[i].size() >= 5) {
+            std::vector<int> tmp = {i};
             cv::RotatedRect ell = fit(tmp);
             cv::Vec3f score = interiorRate(tmp, ell);
-            if(score[1] > minimum_ellipse_score1 && score[2] > minimum_ellipse_score2) {
+            if (score[1] > minimum_ellipse_score1 && score[2] > minimum_ellipse_score2) {
                 ellipseList.emplace_back(ell);
                 ellipse_score.emplace_back(score);
                 ellipseArcId.emplace_back(tmp);
@@ -143,33 +150,32 @@ void CED::ellipseCluster() {
         }
     }
 
-    std::vector<float>ellScore;
-    cv::Mat2f direction(smoothImage.size(),cv::Vec2f(0,0));
+    std::vector<float> ellScore;
+    cv::Mat2f direction(smoothImage.size(), cv::Vec2f(0, 0));
 
-    cv::Mat1s dx,dy;
-    Sobel(smoothImage,dx,CV_16S,1,0, 3);
-    Sobel(smoothImage,dy,CV_16S,0,1, 3);
+    cv::Mat1s dx, dy;
+    Sobel(smoothImage, dx, CV_16S, 1, 0, 3);
+    Sobel(smoothImage, dy, CV_16S, 0, 1, 3);
     for (int i = 0; i < smoothImage.rows; ++i) {
         for (int j = 0; j < smoothImage.cols; ++j) {
-            double len=sqrt(dx(i,j)*dx(i,j)+dy(i,j)*dy(i,j));
-            if (len!=0)
-            {
-                direction(i, j)=cv::Point2f(dx(i,j)/len,dy(i,j)/len);
-            }
-            else
+            double len = sqrt(dx(i, j) * dx(i, j) + dy(i, j) * dy(i, j));
+            if (len != 0) {
+                direction(i, j) = cv::Point2f(dx(i, j) / len, dy(i, j) / len);
+            } else {
                 direction(i, j) = cv::Point2f(0, 0);
+            }
         }
     }
-    std::vector<std::vector<int>>remainId;
+
+    std::vector<std::vector<int>> remainId;
     std::vector<std::vector<double>> remainScore;
     remainId.resize(threads);
     remainScore.resize(threads);
     parallel_for_(cv::Range(0, threads),
-                  Parallel_For_ComputeMatchScore(ellipseList.data(),remainId.data(), remainScore.data(), direction, sampleNum, radius, width, height, remain_score, (int)ellipseList.size(), threads));
+                  Parallel_For_ComputeMatchScore(ellipseList.data(), remainId.data(), remainScore.data(), direction, sampleNum, radius, width, height, remain_score, (int)ellipseList.size(), threads));
 
-
-    for(int i = 0; i < remainId.size(); i++) {
-        for(int j = 0; j < remainId[i].size(); j++) {
+    for (int i = 0; i < remainId.size(); i++) {
+        for (int j = 0; j < remainId[i].size(); j++) {
             int id = remainId[i][j];
             double score = remainScore[i][j];
             clustered_ellipse.emplace_back(ellipseList[id]);
@@ -178,31 +184,31 @@ void CED::ellipseCluster() {
             ellScore.emplace_back(score);
         }
     }
-    std::vector<int>inDegree(clustered_ellipse.size(), 0);
-    for(int i = 0; i < clustered_ellipse.size(); i++) {
+
+    std::vector<int> inDegree(clustered_ellipse.size(), 0);
+    for (int i = 0; i < clustered_ellipse.size(); i++) {
         cv::RotatedRect& ell1 = clustered_ellipse[i];
-        for(int j = i + 1; j < clustered_ellipse.size(); j++) {
+        for (int j = i + 1; j < clustered_ellipse.size(); j++) {
             cv::RotatedRect& ell2 = clustered_ellipse[j];
             float diff = sqrt(pow(ell1.center.x - ell2.center.x, 2) + pow(ell1.center.y - ell2.center.y, 2)
-                    + pow(ell1.size.height - ell2.size.height, 2) + pow(ell1.size.width - ell2.size.width, 2));
-            if(diff < cluster_dis){
+                              + pow(ell1.size.height - ell2.size.height, 2) + pow(ell1.size.width - ell2.size.width, 2));
+            if (diff < cluster_dis) {
                 float s1 = CV_PI * ell1.size.width * ell1.size.height;
                 float s2 = CV_PI * ell2.size.width * ell2.size.height;
-                if(ellScore[j] < ellScore[i]) {
+                if (ellScore[j] < ellScore[i]) {
                     inDegree[j]++;
-                }
-                else {
+                } else {
                     inDegree[i]++;
                 }
             }
         }
     }
+
     std::vector<cv::RotatedRect> tmp;
-    for(int i = 0; i < clustered_ellipse.size(); i++) {
-        if(inDegree[i] == 0) {
+    for (int i = 0; i < clustered_ellipse.size(); i++) {
+        if (inDegree[i] == 0) {
             tmp.emplace_back(clustered_ellipse[i]);
         }
     }
     clustered_ellipse = tmp;
 }
-
