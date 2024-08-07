@@ -1,7 +1,6 @@
 #include"ED.h"
 #include "CED.h"
 #include "EV.h"
-#define M_PI 3.14159265358979323846
 
 CED::CED(cv::Mat srcImage)
         :ED(srcImage, PREWITT_OPERATOR, 11, 3) {

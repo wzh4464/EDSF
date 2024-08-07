@@ -7,8 +7,6 @@
 
 #include"ED.h"
 
-
-
 class CED : public ED {
 
 public:
@@ -46,7 +44,7 @@ public:
     cv::Mat drawEllArc();
     cv::Mat drawArcDirection();
     cv::Mat drawEllipses(const cv::Mat& img);
-    void CED::drawEllipseOneByOne(const cv::Mat& img);
+    void drawEllipseOneByOne(const cv::Mat& img);
     cv::Mat drawEllipsesAfterCluster(const cv::Mat& img);
     cv::Mat drawEdgeSegmentsAfterSplit();
 

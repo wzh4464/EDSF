@@ -1,6 +1,5 @@
 #include"ED.h"
 #include "CED.h"
-#define M_PI 3.14159265358979323846
 #define M_1_2_PI 1.57079632679489661923
 #define M_180_PI 0.0174532925 // PI/180
 cv::Vec3f CED::interiorRate(const std::vector<cv::Point> &points, cv::RotatedRect &ell) {
